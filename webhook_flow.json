@@ -1,0 +1,909 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "7b5a3cbc-0c65-40d2-93ba-e0f531b51e40",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2272,
+        16
+      ],
+      "id": "a2c1b286-272c-4943-b017-eb59911dc17d",
+      "name": "Webhook - QR Code Scan",
+      "webhookId": "7b5a3cbc-0c65-40d2-93ba-e0f531b51e40"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "da7df949-619b-4ede-b896-32302ae15155",
+              "leftValue": "={{ $json.query.sku }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "9082593f-00f4-4d57-a726-fe3112aeec42",
+              "leftValue": "={{ $json.query.property }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2016,
+        16
+      ],
+      "id": "8e956726-02d4-4a10-8407-122dc1e769a6",
+      "name": "Validate Input Parameters"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"error\": \"invalid_parameters\",\n  \"message\": \"Missing required parameters: sku and/or property\",\n  \"received_data\": {{ JSON.stringify($('Webhook - QR Code Scan').item.json) }},\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1872,
+        192
+      ],
+      "id": "d901080f-dc06-4e67-901b-36c5bcd2b0fc",
+      "name": "Invalid Parameters Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "76c4ebbf-fb92-4a16-be20-15a0aee6dcd5",
+              "leftValue": "={{ $json.SKU }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1536,
+        0
+      ],
+      "id": "ea821c64-669a-4d54-883c-5a03f6c6a24e",
+      "name": "Check Item Found"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"error\": \"item_not_found\",\n  \"message\": \"No item found with SKU: {{ $('Validate Input Parameters').item.json.query.sku }} at Property: {{ $('Validate Input Parameters').item.json.query.property }}\",\n  \"sku_searched\": \"{{ $('Validate Input Parameters').item.json.query.sku }}\",\n  \"property_searched\": \"{{ $('Validate Input Parameters').item.json.query.property }}\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1424,
+        176
+      ],
+      "id": "b3c53747-49f8-4017-bf55-88fe99f7c2e5",
+      "name": "Item Not Found Response"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "quantity-check",
+              "leftValue": "={{ $json['Current Quantity'] }}",
+              "rightValue": "={{ $json['Reorder Threshold'] }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1312,
+        -16
+      ],
+      "id": "f4cdeb59-e5f8-4d50-b362-fbb39ac703c9",
+      "name": "Check Reorder Threshold"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"no_action_needed\",\n  \"action\": \"stock_sufficient\",\n  \"item_details\": {\n    \"sku\": \"{{ $('Check Item Found').item.json.SKU }}\",\n    \"property\": \"{{ $('Check Item Found').item.json.Property }}\",\n    \"item_name\": \"{{ $('Check Item Found').item.json['Item Name'] }}\",\n    \"current_quantity\": {{ parseInt($('Check Item Found').item.json['Current Quantity']) || 0 }},\n    \"reorder_threshold\": {{ parseInt($('Check Item Found').item.json['Reorder Threshold']) || 0 }},\n    \"supplier\": \"{{ $('Check Item Found').item.json.Supplier || 'Not specified' }}\",\n    \"category\": \"{{ $('Check Item Found').item.json.Category || 'Not specified' }}\",\n    \"last_ordered\": \"{{ $('Check Item Found').item.json['Last Ordered Date'] || 'Never' }}\"\n  },\n  \"reason\": \"Current quantity ({{ parseInt($('Check Item Found').item.json['Current Quantity']) || 0 }}) is above reorder threshold ({{ parseInt($('Check Item Found').item.json['Reorder Threshold']) || 0 }}). No reorder needed.\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -1104,
+        80
+      ],
+      "id": "b1763dd5-c47b-4f30-9411-a06ee1c022ec",
+      "name": "No Action Response"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1BmNAz6D82s7pz424zfYLjQJkYcr8lE-UTpZnIYtZz7s",
+          "mode": "list",
+          "cachedResultName": "Copy of PillowPM STR Inventory Procurement Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BmNAz6D82s7pz424zfYLjQJkYcr8lE-UTpZnIYtZz7s/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Requests",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BmNAz6D82s7pz424zfYLjQJkYcr8lE-UTpZnIYtZz7s/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $now.toFormat('M/d/yyyy, h:mm:ss a') }}",
+            "SKU": "={{ $json.SKU }}",
+            "Property": "={{ $json.Property }}",
+            "Item Name": "={{ $json['Item Name'] }}",
+            "Supplier": "={{ $json.Supplier || 'Not specified' }}",
+            "Order Link": "={{ $json['Order Link'] || 'Not specified' }}",
+            "Status": "Pending Order",
+            "Number": "={{ $json.Number || '' }}",
+            "Current Quantity": "={{ $json['Current Quantity'] }}",
+            "Reorder Threshold": "=={{ String($json['Reorder Threshold']) }}",
+            "Category": "={{ $json.Category || 'Not specified' }}",
+            "Last Ordered Date": "={{ $json['Last Ordered Date'] || 'NA' }}",
+            "Request ID": "={{ $json.Webhook }}"
+          },
+          "matchingColumns": [
+            "SKU"
+          ],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SKU",
+              "displayName": "SKU",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Property",
+              "displayName": "Property",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Item Name",
+              "displayName": "Item Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Supplier",
+              "displayName": "Supplier",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Order Link",
+              "displayName": "Order Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Number",
+              "displayName": "Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current Quantity",
+              "displayName": "Current Quantity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reorder Threshold",
+              "displayName": "Reorder Threshold",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Category",
+              "displayName": "Category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Last Ordered Date",
+              "displayName": "Last Ordered Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Request ID",
+              "displayName": "Request ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gid",
+              "displayName": "gid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "num_likes",
+              "displayName": "num_likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "num_hearts",
+              "displayName": "num_hearts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "workspace",
+              "displayName": "workspace",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "start_at",
+              "displayName": "start_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "start_on",
+              "displayName": "start_on",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resource_subtype",
+              "displayName": "resource_subtype",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "due_at",
+              "displayName": "due_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "due_on",
+              "displayName": "due_on",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "completed_at",
+              "displayName": "completed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "assignee_status",
+              "displayName": "assignee_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "completed",
+              "displayName": "completed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "actual_time_minutes",
+              "displayName": "actual_time_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "modified_at",
+              "displayName": "modified_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resource_type",
+              "displayName": "resource_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "projects",
+              "displayName": "projects",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "parent",
+              "displayName": "parent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "hearts",
+              "displayName": "hearts",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "liked",
+              "displayName": "liked",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "hearted",
+              "displayName": "hearted",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "assignee_section",
+              "displayName": "assignee_section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "memberships",
+              "displayName": "memberships",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "assignee",
+              "displayName": "assignee",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "followers",
+              "displayName": "followers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "permalink_url",
+              "displayName": "permalink_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "custom_fields",
+              "displayName": "custom_fields",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ProductName",
+              "displayName": "ProductName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TaskName",
+              "displayName": "TaskName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TaskId",
+              "displayName": "TaskId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MatchType",
+              "displayName": "MatchType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ProcessedAt",
+              "displayName": "ProcessedAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1056,
+        -112
+      ],
+      "id": "2f34ad27-34f2-4188-8929-d0afbc82590c",
+      "name": "Log Procurement Request",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2SE4yNn4izQxYVE0",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "workspace": "1210923356272144",
+        "name": "=🛒 Order Request: {{ $('Check Reorder Threshold').item.json['Item Name'] }} at {{ $('Check Reorder Threshold').item.json.Property }}",
+        "otherProperties": {
+          "assignee": "1210923356272132",
+          "notes": "=🛒 REORDER REQUEST - URGENT\n\n📋 ITEM DETAILS:\n• SKU: {{ $('Check Reorder Threshold').item.json.SKU }}\n• Property: {{ $('Check Reorder Threshold').item.json.Property }}\n• Item Name: {{ $('Check Reorder Threshold').item.json['Item Name'] }}\n• Current Quantity: {{ $('Check Reorder Threshold').item.json['Current Quantity'] }}\n• Reorder Threshold: {{ $('Check Reorder Threshold').item.json['Reorder Threshold'] }}\n• Request ID: {{ $('Log Procurement Request').item.json['Request ID'] }}\n\n🏪 SUPPLIER INFO:\n• Supplier: {{ $('Check Reorder Threshold').item.json.Supplier || 'Not specified' }}\n• Purchase Link: {{ $('Check Reorder Threshold').item.json['Order Link'] || 'Not specified' }}\n• Category: {{ $('Check Reorder Threshold').item.json.Category || 'Not specified' }}\n• Last Ordered: {{ $('Check Reorder Threshold').item.json['Last Ordered Date'] || 'Never' }}\n\n⚠️ STOCK ALERT: Current inventory ({{ $('Check Reorder Threshold').item.json['Current Quantity'] }}) is at or below reorder threshold ({{ $('Check Reorder Threshold').item.json['Reorder Threshold'] }})\n\n✅ CRITICAL: Mark this task as COMPLETE when you have successfully placed the order. This will:\n1. Automatically update inventory quantity to appropriate levels\n2. Change status to 'Delivered' in procurement log\n3. Update the main inventory spreadsheet",
+          "projects": [
+            "1211013970313017"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.asana",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        -112
+      ],
+      "id": "9c23c013-9abe-45b1-8c2b-c72da8614f4f",
+      "name": "Create Asana Task",
+      "credentials": {
+        "asanaOAuth2Api": {
+          "id": "3GKH9o2BmnOjQdhm",
+          "name": "Asana account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"action\": \"reorder_initiated\",\n  \"procurement_request\": {\n    \"request_id\": \"{{ $('Log Procurement Request').item.json['Request ID'] }}\",\n    \"sku\": \"{{ $('Check Reorder Threshold').item.json.SKU }}\",\n    \"property\": \"{{ $('Check Reorder Threshold').item.json.Property }}\",\n    \"item_name\": \"{{ $('Check Reorder Threshold').item.json['Item Name'] }}\",\n    \"current_quantity\": {{ parseInt($('Check Reorder Threshold').item.json['Current Quantity']) || 0 }},\n    \"reorder_threshold\": {{ parseInt($('Check Reorder Threshold').item.json['Reorder Threshold']) || 0 }},\n    \"supplier\": \"{{ $('Check Reorder Threshold').item.json.Supplier || 'Not specified' }}\",\n    \"order_link\": \"{{ $('Check Reorder Threshold').item.json['Order Link'] || 'Not specified' }}\",\n    \"category\": \"{{ $('Check Reorder Threshold').item.json.Category || 'Not specified' }}\",\n    \"last_ordered_date\": \"{{ $('Check Reorder Threshold').item.json['Last Ordered Date'] || 'Never' }}\"\n  },\n  \"actions_taken\": {\n    \"asana_task_created\": true,\n    \"asana_task_id\": \"{{ $('Create Asana Task').item.json.gid }}\",\n    \"logged_to_procurement_sheet\": true,\n    \"status\": \"awaiting_order_completion\"\n  },\n  \"next_steps\": \"Complete the Asana task to automatically update inventory levels and mark as delivered\",\n  \"alert_reason\": \"Stock level ({{ parseInt($('Check Reorder Threshold').item.json['Current Quantity']) || 0 }}) is at or below reorder threshold ({{ parseInt($('Check Reorder Threshold').item.json['Reorder Threshold']) || 0 }})\",\n  \"timestamp\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -640,
+        -112
+      ],
+      "id": "918f3b9e-e33a-46b8-a957-6a54a682cf52",
+      "name": "Success Response"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Ebt0O61xyNbkCSRWBw2s0IXo2JvG8L_7ukXDY35w3r4",
+          "mode": "list",
+          "cachedResultName": "Copy of PillowPM Kanban QR Code Mapping Inventory Procurement",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Ebt0O61xyNbkCSRWBw2s0IXo2JvG8L_7ukXDY35w3r4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "QR Code Map",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Ebt0O61xyNbkCSRWBw2s0IXo2JvG8L_7ukXDY35w3r4/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "SKU",
+              "lookupValue": "={{ $json.query.sku }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1776,
+        0
+      ],
+      "id": "86f85f93-cdcb-47aa-ad47-c48f0cb9be11",
+      "name": "Lookup Item by SKU and Property1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2SE4yNn4izQxYVE0",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - QR Code Scan": {
+      "main": [
+        [
+          {
+            "node": "Validate Input Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input Parameters": {
+      "main": [
+        [
+          {
+            "node": "Lookup Item by SKU and Property1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Invalid Parameters Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Item Found": {
+      "main": [
+        [
+          {
+            "node": "Check Reorder Threshold",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Item Not Found Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Reorder Threshold": {
+      "main": [
+        [
+          {
+            "node": "Log Procurement Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Action Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Procurement Request": {
+      "main": [
+        [
+          {
+            "node": "Create Asana Task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Asana Task": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Item by SKU and Property1": {
+      "main": [
+        [
+          {
+            "node": "Check Item Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "10ba9dcd-1ecc-442d-9608-7ce1a001d5a3",
+  "meta": {
+    "instanceId": "1402b619a2feb0403a1b75912eace7839f96dd0c9b3d9fde3f47b61bbf2d1164"
+  },
+  "id": "6ffxV3x6smReAzKi",
+  "tags": []
+}
